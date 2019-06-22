@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import serial
-import pigpio
+##import pigpio
 import time
 
 ## init pigpio lib
