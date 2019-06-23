@@ -44,14 +44,8 @@ def servoWriteCmd(id, cmd, pos = None, duration = None):
 
 
 
-##loop
-
-while True:
-    try:
-        servoWriteCmd(1,1,0,1000) #send (id=1, cmd=1, position=0, time=1000ms)
-        time.sleep(3)
-        servoWriteCmd(1,1,1000,1000)
-        time.sleep(3)
-    except Exception as e:
-        print(e)
-        break
+try:
+    #send       (id,cmd, position, time_in_ms)
+    servoWriteCmd(1,  1,     1000,       1000)
+except Exception as e:
+    print(e)
