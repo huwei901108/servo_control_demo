@@ -2,6 +2,7 @@
 
 import serial
 import time
+import struct
 
 serialHandle = serial.Serial("/dev/ttyUSB0", 115200)  #bo te rate 115200
 
@@ -45,13 +46,20 @@ def readPosition(id):
     servoWriteCmd(id, command["POS_READ"])
     time.sleep(0.00034)  #wait until cmd is sent
     time.sleep(0.005)  #wait until data is get
+    time.sleep(1)
     count = serialHandle.inWaiting() #get serial buffer len
     pos = None
+    print("count=%d" %count)
     if count != 0:
-        recv_data = serialHandle.read(count)
+        recv_str = serialHandle.read(count)
+        recv_data = []
+        for tmpStr in recv_str:
+            tmpInt, = struct.unpack('B', tmpStr)
+            recv_data.append(tmpInt)
         if count == 8: #correct num for read pos
-            if recv_data[0] == 0x55 and recv_data[1] == 0x55 and recv_data[4] == 0x1C :
+            if recv_data[0] == 0x55 and recv_data[1] == 0x55 and recv_data[4] == 0x1C:
                  #correct format
+                 print 'correct format ', recv_data[5], ' and ', recv_data[6]
                  pos= 0xffff & (recv_data[5] | (0xff00 & (recv_data[6] << 8))) #sum up pos
 
     return pos
@@ -59,7 +67,7 @@ def readPosition(id):
 servoWriteCmd(1, command["LOAD_UNLOAD_WRITE"],0)  #make Moto power off, can be moved by hand
 while True:
     try:
-        pos = readPosition(1) #read(id)
+        pos = readPosition(10) #read(id)
         print(pos)
         time.sleep(1)
         

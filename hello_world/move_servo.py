@@ -46,6 +46,6 @@ def servoWriteCmd(id, cmd, pos = None, duration = None):
 
 try:
     #send       (id,cmd, position, time_in_ms)
-    servoWriteCmd(1,  1,     1000,       1000)
+    servoWriteCmd(10,  1,     500,       1000)
 except Exception as e:
     print(e)
