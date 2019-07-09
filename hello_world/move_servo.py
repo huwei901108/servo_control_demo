@@ -10,6 +10,9 @@ import time
 ##init serial
 serialHandle = serial.Serial("/dev/ttyUSB0", 115200)
 
+def print_hex(bytes):
+    l=[hex(int(i)) for i in bytes]
+    print(" ".join(l))
 
 ##
 ##
@@ -37,6 +40,7 @@ def servoWriteCmd(id, cmd, pos = None, duration = None):
         sum = sum - 0x55 - 0x55  #remove starting 0x55
         sum = ~sum  #revert
         buf.append(0xff & sum)  #get lower8 and append to buffer
+	print_hex( buf )
         serialHandle.write(buf) #send
     except Exception as e:
         print(e)
@@ -46,6 +50,6 @@ def servoWriteCmd(id, cmd, pos = None, duration = None):
 
 try:
     #send       (id,cmd, position, time_in_ms)
-    servoWriteCmd(10,  1,     500,       1000)
+    servoWriteCmd(1,  1,     300,       1000)
 except Exception as e:
     print(e)
