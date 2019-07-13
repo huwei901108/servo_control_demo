@@ -2,11 +2,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/tarm/goserial"
 	"io"
 	"sync"
-	"errors"
+	"time"
 )
 
 const MAXRDLEN = 8000
@@ -14,6 +15,7 @@ const MAX2BYTE = 256*256 - 1
 const SerialName = "/dev/ttyUSB0"
 const SerialBaud = 115200
 const SerialReadTimeoutInMs = 3
+const ReadTimeoutInSec = 5
 const DebugSerial = true
 
 const ServoCmdMoveWrite = 1
@@ -61,6 +63,12 @@ func ServoWriteCmd(id byte, cmd byte, pos int32, duration int32) error {
 	if DebugSerial {
 		fmt.Printf("DebugSerial:prepare to WriteCmd(%v,%v,%v,%v)\n", id, cmd, pos, duration)
 	}
+
+	//open serial if needed
+	if serial_handler.iorwc == nil {
+		SerialOpen()
+	}
+
 	buf := []byte{0x55, 0x55}
 
 	buf = append(buf, (id & 0xff), 0, (cmd & 0xff)) //len is set to 0 for now, will be set in later
@@ -109,6 +117,8 @@ func ReadPosition(id byte) (pos int, err error) {
 	}
 
 	p := posParser{}
+	timeout := DelayTimer{}
+	timeout.Start(ReadTimeoutInSec * time.Second)
 	lock()
 	defer unlock()
 	for {
@@ -120,12 +130,16 @@ func ReadPosition(id byte) (pos int, err error) {
 
 			pos, err := p.parse(buffer[:num])
 			if err != nil {
-				if DebugSerial{
-					fmt.Printf("parse warning:%s",err.Error())
+				if DebugSerial {
+					fmt.Printf("parse warning:%s", err.Error())
 				}
-			}else{
+			} else {
 				return pos, nil
 			}
+		}
+
+		if timeout.Timeout {
+			return 0, errors.New(fmt.Sprintf("Read Timeout in sec:%d", ReadTimeoutInSec))
 		}
 	}
 
@@ -138,10 +152,10 @@ type posParser struct {
 
 func (p *posParser) parse(buffer []byte) (pos int, err error) {
 
-	for _,eachByte := range buffer {
-		if DebugSerial{
-		fmt.Printf("eachByte %v \n", eachByte)
-}
+	for _, eachByte := range buffer {
+		if DebugSerial {
+			fmt.Printf("eachByte %v \n", eachByte)
+		}
 		switch p.state {
 		case 0, 1:
 			if eachByte == 0x55 {
@@ -169,8 +183,20 @@ func (p *posParser) parse(buffer []byte) (pos int, err error) {
 		}
 	}
 	if err == nil {
-	err = errors.New(fmt.Sprintf("frame not finished. state(%d)", p.state))
-}
+		err = errors.New(fmt.Sprintf("frame not finished. state(%d)", p.state))
+	}
 	return 0, err
 
+}
+
+type DelayTimer struct {
+	Timeout bool
+}
+
+func (dt *DelayTimer) Start(delay time.Duration) {
+	dt.Timeout = false
+	func() {
+		time.Sleep(delay)
+		dt.Timeout = true
+	}()
 }

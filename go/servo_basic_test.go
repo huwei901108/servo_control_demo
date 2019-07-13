@@ -7,7 +7,8 @@ import (
 
 func Test_write_basic(t *testing.T) {
 	t.Log("test start")
-	err := SerialOpen()
+	var err error
+	//err := SerialOpen()
 	if err != nil {
 		t.Error(err.Error())
 		return
@@ -29,16 +30,21 @@ func Test_write_basic(t *testing.T) {
 }
 func Test_read_pos(t *testing.T) {
 	t.Log("test start")
-	err := SerialOpen()
+	var err error
+	//err := SerialOpen()
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
+	for i := 0; i < 3; i++ {
+		pos, err := ReadPosition(1)
+		if err != nil {
+			t.Error(err.Error())
+			return
+		}
+		t.Log("read pos:", pos)
 
-	pos,err := ReadPosition(1)
-	if err != nil {
-		t.Error(err.Error())
-		return
+		pos, err = ReadPosition(255)
+		t.Log("err", err.Error())
 	}
-	t.Log("read pos:", pos)
 }
