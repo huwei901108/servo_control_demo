@@ -18,9 +18,23 @@ const SerialReadTimeoutInMs = 3
 const ReadTimeoutInSec = 5
 const DebugSerial = true
 
+const ServoCmdMax=36
+
 const ServoCmdMoveWrite = 1
+const ServoCmdMoveStop = 12
 const ServoCmdPosRead = 28
+const ServoCmdMotorModeWrite = 29
 const ServoCmdLoadUnloadWrite = 31
+
+var ServoCmdLen [ServoCmdMax+1]byte
+
+func init(){
+	ServoCmdLen[ServoCmdMoveWrite] = 7
+	ServoCmdLen[ServoCmdMoveStop] = 3
+	ServoCmdLen[ServoCmdPosRead] = 3
+	ServoCmdLen[ServoCmdMotorModeWrite] = 7
+	ServoCmdLen[ServoCmdLoadUnloadWrite] = 4
+}
 
 type serial_handle struct {
 	iorwc io.ReadWriteCloser
@@ -59,7 +73,7 @@ func SerialClose() {
 }
 
 // pass any val not in range [0,MAX2BYTE] to pos or duration will make the proc ignore the parameter
-func ServoWriteCmd(id byte, cmd byte, pos int32, duration int32) error {
+func ServoWriteCmd(id byte, cmd byte, pos uint16, duration uint16) error {
 	if DebugSerial {
 		fmt.Printf("DebugSerial:prepare to WriteCmd(%v,%v,%v,%v)\n", id, cmd, pos, duration)
 	}
@@ -73,10 +87,14 @@ func ServoWriteCmd(id byte, cmd byte, pos int32, duration int32) error {
 
 	buf = append(buf, (id & 0xff), 0, (cmd & 0xff)) //len is set to 0 for now, will be set in later
 
-	if 0 <= pos && pos <= MAX2BYTE {
+	if cmd > ServoCmdMax {
+		cmd = 0
+	}
+
+	if ServoCmdLen[cmd] >= 5 {
 		buf = append(buf, byte(pos&0xff), byte((pos>>8)&0xff))
 	}
-	if 0 <= duration && duration <= MAX2BYTE {
+	if ServoCmdLen[cmd] >= 7 {
 		buf = append(buf, byte(duration&0xff), byte((duration>>8)&0xff))
 	}
 
@@ -111,7 +129,7 @@ func ReadPosition(id byte) (pos int, err error) {
 	}
 	unlock()
 
-	err = ServoWriteCmd(id, ServoCmdPosRead, -1, -1)
+	err = ServoWriteCmd(id, ServoCmdPosRead, 0, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -200,3 +218,18 @@ func (dt *DelayTimer) Start(delay time.Duration) {
 		dt.Timeout = true
 	}()
 }
+
+func ServoMove(id byte, pos uint16, duration uint16) error {
+	return ServoWriteCmd(id, ServoCmdMoveWrite, pos, duration)
+}
+
+func ServoMotorMove(id byte, enable bool, speed int16) error {
+	var enable_u16 uint16
+	if enable {
+		enable_u16 = 1
+	}else{
+		enable_u16 = 0
+	}
+	return ServoWriteCmd(id, ServoCmdMotorModeWrite, enable_u16, uint16(speed))
+}
+

@@ -1,29 +1,30 @@
+package main
 
-pakage main
-
-import(
-
-"fmt"
-
+import (
 )
 
-const ReadTimeoutInSec=10
+const SERVO_NUM=3
+var ServoId [SERVO_NUM]byte
 
-func ReadPosWithTime(id byte) (pos int, err error){
-
-	type read_pos struct{
-		pos int;
-		err error;
-	}
-
-	chan_res := make (chan read_pos, 1)
-	go func(){
-		readpos,readerr := ReadPosition(id)
-		chan_res <- read_pos{pos:readpos; err:readerr}
-	}()
-
-	select{
-		case res:= <-chan_res
-	}
-
+func init(){
+	ServoId[0]=1
+	ServoId[1]=6
+	ServoId[2]=10
 }
+
+type ServoPos struct{
+
+	Pos[SERVO_NUM] int;
+}
+
+func ReadAllServo() (sp ServoPos, err error){
+
+	for  i:=0;i<SERVO_NUM;i++ {
+		sp.Pos[i], err=ReadPosition(ServoId[i])
+		if err!=nil {
+			return sp,err
+		}
+	}
+	return sp,nil
+}
+
