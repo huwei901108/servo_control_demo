@@ -9,25 +9,29 @@ import (
 const SERVO_NUM = 3
 
 type ServoInfoS struct {
-	Id    byte
-	KeyUp string
-	KeyDn string
+	Id		byte
+	KeyUp		string
+	KeyDn		string
+	MoveEverSent	bool
+	MoveLastSent	uint16
 }
 
 var ServoInfo [SERVO_NUM]ServoInfoS
 
 const CtrlUIDelay = 1 * time.Millisecond
 const CtrlUIKeyStop = " "
-const CtrlUIInc = 1
+const CtrlUIInc = 3
+
+const MoveRepeatSend = 0
 
 func init() {
-	ServoInfo[0] = ServoInfoS{1, "q", "a"}
-	ServoInfo[1] = ServoInfoS{6, "e", "d"}
-	ServoInfo[2] = ServoInfoS{10, "w", "s"}
+	ServoInfo[0] = ServoInfoS{1, "q", "a", false, 0}
+	ServoInfo[1] = ServoInfoS{6, "e", "d", false, 0}
+	ServoInfo[2] = ServoInfoS{10,"w", "s", false, 0}
 }
 
 type ServoPos struct {
-	Pos [SERVO_NUM]int
+	Pos [SERVO_NUM]uint16
 }
 
 func ReadAllServo() (sp ServoPos, err error) {
@@ -59,18 +63,27 @@ func MotorCtlAndRead() (ServoPos, error) {
 func CtrlUI() (ServoPos, error) {
 	err := SerialOpen()
 	target_sp, err := ReadAllServo()
+	follow_target := true
 
+	go func(){
+		for follow_target=true; follow_target; {
+			time.Sleep(CtrlUIDelay)
+			MoveAllServoImmIfNeed(target_sp)
+		}
+	}()
+
+	// start tty handling
 	t, _ := term.Open("/dev/tty")
 	defer func() {
 		t.Restore()
 		t.Close()
 		fmt.Println("")
 	}()
-	fmt.Printf("Type KeyUp or KeyDn to move target. Type '%s' to confirm\n", CtrlUIKeyStop)
-	fmt.Printf("%#v \n", ServoInfo)
 	term.RawMode(t)
 	t.SetReadTimeout(CtrlUIDelay)
 
+	fmt.Printf("Type KeyUp or KeyDn to move target. Type '%s' to confirm\n", CtrlUIKeyStop)
+	fmt.Printf("%#v \n", ServoInfo)
 	for {
 		bytes := make([]byte, 1)
 		numBytes, _ := t.Read(bytes)
@@ -104,4 +117,19 @@ func CtrlUI() (ServoPos, error) {
 	}
 
 	return target_sp,err
+}
+
+func MoveAllServoImmIfNeed(targetSp ServoPos) (err error) {
+	for idx, info := range ServoInfo {
+		thisTarget:=targetSp.Pos[idx]
+		//fmt.Printf("/r idx%d,thisTar%d,info%#v",idx,thisTarget,info)
+		if info.MoveEverSent && thisTarget == info.MoveLastSent {
+			// skip move
+		} else {
+			err = ServoMove(info.Id, thisTarget, 0)
+		}
+		ServoInfo[idx].MoveLastSent = thisTarget
+		ServoInfo[idx].MoveEverSent = true
+	}
+	return err
 }

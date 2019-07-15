@@ -118,7 +118,7 @@ func ServoWriteCmd(id byte, cmd byte, pos uint16, duration uint16) error {
 	return err
 }
 
-func ReadPosition(id byte) (pos int, err error) {
+func ReadPosition(id byte) (pos uint16, err error) {
 	buffer := make([]byte, MAXRDLEN)
 
 	lock()
@@ -165,10 +165,10 @@ func ReadPosition(id byte) (pos int, err error) {
 
 type posParser struct {
 	state int
-	pos   int
+	pos   uint16
 }
 
-func (p *posParser) parse(buffer []byte) (pos int, err error) {
+func (p *posParser) parse(buffer []byte) (pos uint16, err error) {
 
 	for _, eachByte := range buffer {
 		if DebugSerial {
@@ -192,10 +192,10 @@ func (p *posParser) parse(buffer []byte) (pos int, err error) {
 				p.state = 0
 			}
 		case 5:
-			p.pos = int(eachByte & 0xff)
+			p.pos = uint16(eachByte & 0xff)
 			p.state++
 		case 6:
-			p.pos += int(eachByte&0xff) * 256
+			p.pos += uint16(eachByte&0xff) * 256
 			p.state++
 			return p.pos, err
 		}
