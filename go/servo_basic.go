@@ -18,7 +18,7 @@ const SerialReadTimeoutInMs = 3
 const ReadTimeoutInSec = 5
 const DebugSerial = true
 
-const ServoCmdMax=36
+const ServoCmdMax = 36
 
 const ServoCmdMoveWrite = 1
 const ServoCmdMoveStop = 12
@@ -26,9 +26,9 @@ const ServoCmdPosRead = 28
 const ServoCmdMotorModeWrite = 29
 const ServoCmdLoadUnloadWrite = 31
 
-var ServoCmdLen [ServoCmdMax+1]byte
+var ServoCmdLen [ServoCmdMax + 1]byte
 
-func init(){
+func init() {
 	ServoCmdLen[ServoCmdMoveWrite] = 7
 	ServoCmdLen[ServoCmdMoveStop] = 3
 	ServoCmdLen[ServoCmdPosRead] = 3
@@ -227,9 +227,8 @@ func ServoMotorMove(id byte, enable bool, speed int16) error {
 	var enable_u16 uint16
 	if enable {
 		enable_u16 = 1
-	}else{
+	} else {
 		enable_u16 = 0
 	}
 	return ServoWriteCmd(id, ServoCmdMotorModeWrite, enable_u16, uint16(speed))
 }
-

@@ -8,18 +8,40 @@ import (
 func Test_motor(t *testing.T) {
 	t.Log("test start")
 	var err error
+	SerialOpen()
+	ServoMove(1, 300, 1000)
+	time.Sleep(time.Duration(3 * time.Second))
+	defer ServoMove(1, 500, 1000)
+
 	err = ServoMotorMove(1, true, 0)
-	if err != nil { t.Error(err.Error()); return; }
-	time.Sleep(time.Duration(2 * time.Second))
-	err = ServoMotorMove(1, true, 200)
-	if err != nil { t.Error(err.Error()); return; }
+	defer ServoMotorMove(1, false, 0)
+
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
 	time.Sleep(time.Duration(2 * time.Second))
 
-	//ServoWriteCmd(1,11,0,0)
-	//time.Sleep(time.Duration(2 * time.Second))
+	err = ServoMotorMove(1, true, 200)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	time.Sleep(time.Duration(2 * time.Second))
+
+	err = ServoMotorMove(1, true, 0)
+	err = ServoMotorMove(1, true, -200)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	time.Sleep(time.Duration(2 * time.Second))
 
 	err = ServoMotorMove(1, false, 0)
-	if err != nil { t.Error(err.Error()); return; }
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
 	time.Sleep(time.Duration(2 * time.Second))
 }
 
