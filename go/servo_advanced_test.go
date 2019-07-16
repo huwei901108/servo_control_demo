@@ -5,8 +5,8 @@ import (
 )
 
 func Test_ctrl_UI(t *testing.T) {
-
-	sp, err := CtrlUI()
+	ui := CtrlUI{}
+	sp, err := ui.Start()
 	if err != nil {
 		t.Error(err.Error())
 		return
