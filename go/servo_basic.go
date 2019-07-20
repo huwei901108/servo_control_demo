@@ -12,6 +12,7 @@ import (
 
 const MAXRDLEN = 8000
 const MAX2BYTE = 256*256 - 1
+const DefaultReadDelay = 3 * time.Millisecond
 const SerialName = "/dev/ttyUSB0"
 const SerialBaud = 115200
 const SerialReadTimeoutInMs = 3
@@ -72,7 +73,6 @@ func SerialClose() {
 	}
 }
 
-// pass any val not in range [0,MAX2BYTE] to pos or duration will make the proc ignore the parameter
 func ServoWriteCmd(id byte, cmd byte, pos uint16, duration uint16) error {
 	if DebugSerial {
 		fmt.Printf("DebugSerial:prepare to WriteCmd(%v,%v,%v,%v)\n", id, cmd, pos, duration)
@@ -100,14 +100,7 @@ func ServoWriteCmd(id byte, cmd byte, pos uint16, duration uint16) error {
 
 	buf[3] = byte((len(buf) - 2) & 0xff) // remove first 2 0x55
 
-	// calc checksum
-	var sum uint32
-	for _, eachByte := range buf {
-		sum += uint32(eachByte)
-	}
-	sum = sum - uint32(0x55) - uint32(0x55)
-	sum = ^sum
-	buf = append(buf, byte(sum&0xff))
+	buf = append(buf, calcCheckSum(buf))
 
 	lock()
 	defer unlock()
@@ -118,35 +111,81 @@ func ServoWriteCmd(id byte, cmd byte, pos uint16, duration uint16) error {
 	return err
 }
 
-func ReadPosition(id byte) (pos uint16, err error) {
-	buffer := make([]byte, MAXRDLEN)
-
-	lock()
-	//clear buffer before send
-	num, err := serial_handler.iorwc.Read(buffer)
-	if err != nil && err != io.EOF {
-		return 0, err
+func calcCheckSum(buf []byte) byte {
+	var sum uint32
+	for _, eachByte := range buf {
+		sum += uint32(eachByte)
 	}
-	unlock()
+	sum = sum - uint32(0x55) - uint32(0x55)
+	sum = ^sum
+	return byte( sum & 0ff )
+}
 
-	err = ServoWriteCmd(id, ServoCmdPosRead, 0, 0)
-	if err != nil {
-		return 0, err
+type PosReader struct{
+	Id		[]byte;
+	ReqDelay	time.Duration;
+	BufferLen	int;
+	buffer		[]byte;
+	parser		posParser;
+	timeout		DelayTimer;
+}
+
+func (pr *PosReader) Init() error{
+	if len(pr.Id) == 0 {
+		return errors.New("empty id slice")
+	}
+	if pr.ReqDelay == 0 {
+		pr.ReqDelay = DefaultReadDelay
+	}
+	if pr.BufferLen == 0 {
+		pr.BufferLen = MAXRDLEN
+	}
+	pr.buffer := make([]byte, pr.BufferLen)
+	pr.timeout := DelayTimer{}
+
+	pr.parser := posParser{pr.Id}
+	err = pr.parser.init()
+	if err != nil{
+		return err
 	}
 
-	p := posParser{}
-	timeout := DelayTimer{}
-	timeout.Start(ReadTimeoutInSec * time.Second)
+
 	lock()
 	defer unlock()
+	//clear buffer
+	_, err := serial_handler.iorwc.Read(buffer)
+	if err != nil && err != io.EOF {
+		return err
+	}
+}
+
+func (pr *PosReader)ReadPosition() (pos []uint16, err error) {
+
+	err = pr.Init()
+	if err!=nil {
+		return nil, err
+	}
+
+	for _, id := range pr.Id{
+		err = ServoWriteCmd(id, ServoCmdPosRead, 0, 0)
+		if err != nil {
+			return nil, err
+		}
+		time.Sleep(pr.ReqDelay)
+	}
+
+	pr.timeout.Start(ReadTimeoutInSec * time.Second)
 	for {
-		num, err = serial_handler.iorwc.Read(buffer)
+		lock()
+		num, err = serial_handler.iorwc.Read(pr.buffer)
+		defer unlock()
+
 		if num > 0 {
 			if DebugSerial {
-				fmt.Printf("ReadBuf:%#v\n", buffer[:num])
+				fmt.Printf("ReadBuf:%#v\n", pr.buffer[:num])
 			}
 
-			pos, err := p.parse(buffer[:num])
+			pos, err := pr.parser.parse(buffer[:num])
 			if err != nil {
 				if DebugSerial {
 					fmt.Printf("parse warning:%s", err.Error())
@@ -157,23 +196,66 @@ func ReadPosition(id byte) (pos uint16, err error) {
 		}
 
 		if timeout.Timeout {
-			return 0, errors.New(fmt.Sprintf("Read Timeout in sec:%d", ReadTimeoutInSec))
+			return nil, errors.New(fmt.Sprintf("Read Timeout in sec:%d", ReadTimeoutInSec))
 		}
 	}
 
 }
 
 type posParser struct {
-	state int
-	pos   uint16
+	Id	[]byte
+	state 	int
+	pos   	[]uint16
+	fin	[]bool
+	parseBuffer	[10]byte
+	parsingId	byte
 }
 
-func (p *posParser) parse(buffer []byte) (pos uint16, err error) {
+func (p *posParser) init() error{
+	if len(p.Id) == 0 {
+		return errors.New("id slice is empty")
+	}
+	if p.anyDupId() {
+		return errors.New("duplicate items in input id")
+	}
+	pos := make([]uint16, len(p.Id))
+	fin := make([]bool, len(p.Id))
+	for i,_ := range fin{
+		fin[i] = false
+	}
+}
 
-	for _, eachByte := range buffer {
+func (p *posParser) anyDupId() bool {
+	for i,ci := range p.Id {
+		for _,cj := range p.Id[i:]{
+			if ci == cj {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+type FrameNotFinError struct{
+	State int
+}
+
+func (e *FrameNotFinError) Error() string {
+	return fmt.Sprintf("frame not finished. state(%d)", State))
+}
+
+func (p *posParser) parse(recvBuffer []byte) (pos []uint16, err error) {
+	for _, eachByte := range recvBuffer {
 		if DebugSerial {
 			fmt.Printf("eachByte %v \n", eachByte)
 		}
+		i,p,err := parseSM(eachByte)
+	}
+}
+
+func (p *posParser) parseSM(eachByte byte)(parseId byte, parsePos uint16, err error){
+	p.parseBuffer[p.state] = b
+
 		switch p.state {
 		case 0, 1:
 			if eachByte == 0x55 {
@@ -182,13 +264,16 @@ func (p *posParser) parse(buffer []byte) (pos uint16, err error) {
 				err = errors.New(fmt.Sprintf("protocol err. state(%d)", p.state))
 				p.state = 0
 			}
-		case 2, 3:
+		case 2:  //should make parsing SM a new struct
+			parsingId = eachByte
+			p.state++
+		case 3:
 			p.state++
 		case 4:
 			if eachByte == 0x1C {
 				p.state++
 			} else {
-				err = errors.New(fmt.Sprintf("protocal err. state(%d)", p.state))
+				err = errors.New(fmt.Sprintf("protocal err, wrong cmd byte. state(%d)", p.state))
 				p.state = 0
 			}
 		case 5:
@@ -201,7 +286,6 @@ func (p *posParser) parse(buffer []byte) (pos uint16, err error) {
 		}
 	}
 	if err == nil {
-		err = errors.New(fmt.Sprintf("frame not finished. state(%d)", p.state))
 	}
 	return 0, err
 
