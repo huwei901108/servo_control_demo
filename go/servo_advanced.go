@@ -134,9 +134,9 @@ func (ui *CtrlUI) Start() (ServoPos, error) {
 		numBytes, _ := t.Read(bytes)
 
 		var getStr string
-		if numBytes== 0 {
+		if numBytes == 0 {
 			getStr = ""
-		}else {
+		} else {
 			getStr = string(bytes[0])
 		}
 		speed := ui.inputAndGetSpeed(getStr)

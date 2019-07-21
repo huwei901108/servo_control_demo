@@ -76,15 +76,40 @@ func Test_read_pos(t *testing.T) {
 		t.Error(err.Error())
 		return
 	}
-	for i := 0; i < 2; i++ {
-		pos, err := ReadPosition(1)
-		if err != nil {
-			t.Error(err.Error())
-			return
-		}
-		t.Log("read pos:", pos)
-
-		pos, err = ReadPosition(255)
-		t.Log("err", err.Error())
+	pr, err := NewPosReader([]byte{1})
+	if err != nil {
+		t.Error(err.Error())
+		return
 	}
+	pos, err := pr.ReadPosition()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	t.Log("read pos:", pos)
+
+	pr, err = NewPosReader([]byte{1, 6, 10})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	pos, err = pr.ReadPosition()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	t.Log("read pos:", pos)
+
+	pr, err = NewPosReader([]byte{255})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	pos, err = pr.ReadPosition()
+	if err != nil {
+		t.Log(err.Error())
+		return
+	}
+	t.Log("read pos:", pos)
+
 }
