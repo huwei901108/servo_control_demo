@@ -68,6 +68,7 @@ func Test_move(t *testing.T) {
 	}
 	time.Sleep(time.Duration(2 * time.Second))
 }
+
 func Test_read_pos(t *testing.T) {
 	t.Log("test start")
 	var err error

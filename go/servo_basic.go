@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"github.com/tarm/goserial"
 	"io"
+	"os"
 	"sync"
 	"time"
-	"os"
 )
 
 const MAXRDLEN = 8000
@@ -38,19 +38,19 @@ func init() {
 	ServoCmdLen[ServoCmdLoadUnloadWrite] = 4
 
 	SerialPaths = []string{}
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB0" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB1" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB2" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB3" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB4" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB5" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB6" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB7" )
-	SerialPaths = append(SerialPaths, "/dev/ttyUSB8" )
-	SerialPaths = append(SerialPaths, "/dev/tty.SLAB_USBtoUART" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB0")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB1")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB2")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB3")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB4")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB5")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB6")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB7")
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB8")
+	SerialPaths = append(SerialPaths, "/dev/tty.SLAB_USBtoUART")
 
-	FNF=FrameNotFinError{}
-	WFR=WaitingForResponseError{}
+	FNF = FrameNotFinError{}
+	WFR = WaitingForResponseError{}
 }
 
 type serial_handle struct {
@@ -68,10 +68,10 @@ func unlock() {
 }
 
 func findValidSerialPath() (path string, err error) {
-	for _,path = range SerialPaths{
+	for _, path = range SerialPaths {
 		_, err = os.Stat(path)
 		if err == nil {
-			return path, nil;
+			return path, nil
 		}
 	}
 	return "", err
@@ -166,13 +166,13 @@ type PosReader struct {
 func NewPosReader(inputId []byte) (pr *PosReader, err error) {
 	pr = &PosReader{Id: inputId}
 	err = pr.init()
-	if err!= nil {
+	if err != nil {
 		return nil, err
 	}
 	return pr, nil
 }
 
-func (pr *PosReader)init() (err error) {
+func (pr *PosReader) init() (err error) {
 	if len(pr.Id) == 0 {
 		return errors.New("empty id slice")
 	}
@@ -188,7 +188,7 @@ func (pr *PosReader)init() (err error) {
 	pr.parser = posParser{Id: pr.Id}
 	err = pr.parser.init()
 	if err != nil {
-		return  err
+		return err
 	}
 
 	//open serial if needed
@@ -196,13 +196,12 @@ func (pr *PosReader)init() (err error) {
 		SerialOpen()
 	}
 
-
 	lock()
 	defer unlock()
 	//clear buffer
 	_, err = serial_handler.iorwc.Read(pr.buffer)
 	if err != nil && err != io.EOF {
-		return  err
+		return err
 	}
 	return nil
 }
@@ -285,7 +284,7 @@ func (p *posParser) init() error {
 
 func (p *posParser) anyDupId() bool {
 	for i, ci := range p.Id {
-		if i+1 >= len(p.Id ) {
+		if i+1 >= len(p.Id) {
 			continue
 		}
 		for _, cj := range p.Id[i+1:] {
@@ -357,7 +356,7 @@ func (e *FrameNotFinError) Error() string {
 	return fmt.Sprintf("frame not finished. state(%d)", e.State)
 }
 
-func (sm *parseSM) init(){
+func (sm *parseSM) init() {
 	sm.parseBuffer = make([]byte, 16)
 }
 

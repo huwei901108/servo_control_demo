@@ -17,6 +17,7 @@ type ServoInfoS struct {
 }
 
 var ServoInfo [SERVO_NUM]ServoInfoS
+var ServoId [SERVO_NUM]byte
 
 const CtrlUIDelay = 1 * time.Millisecond
 const CtrlUIKeyStop = " "
@@ -42,6 +43,11 @@ func init() {
 	CtrlUISpeed[0] = 3
 	CtrlUISpeed[1] = 6
 	CtrlUISpeed[2] = 9
+
+	for idx, info := range ServoInfo {
+		ServoId[idx] = info.Id
+	}
+
 }
 
 type ServoPos struct {
@@ -50,12 +56,17 @@ type ServoPos struct {
 
 func ReadAllServo() (sp ServoPos, err error) {
 
-	for i := 0; i < SERVO_NUM; i++ {
-		sp.Pos[i], err = ReadPosition(ServoInfo[i].Id)
-		if err != nil {
-			return sp, err
-		}
+	pr, err := NewPosReader(ServoId[:])
+	if err != nil {
+		return sp, err
 	}
+
+	pos, err := pr.ReadPosition()
+	if err != nil {
+		return sp, err
+	}
+
+	copy(sp.Pos[:], pos)
 	return sp, nil
 }
 
