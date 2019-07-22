@@ -8,12 +8,12 @@ import (
 	"io"
 	"sync"
 	"time"
+	"os"
 )
 
 const MAXRDLEN = 8000
 const MAX2BYTE = 256*256 - 1
 const DefaultReadDelay = 3 * time.Millisecond
-const SerialName = "/dev/tty.SLAB_USBtoUART" // "/dev/ttyUSB0"
 const SerialBaud = 115200
 const SerialReadTimeoutInMs = 3
 const ReadTimeoutInSec = 5
@@ -28,6 +28,7 @@ const ServoCmdMotorModeWrite = 29
 const ServoCmdLoadUnloadWrite = 31
 
 var ServoCmdLen [ServoCmdMax + 1]byte
+var SerialPaths []string
 
 func init() {
 	ServoCmdLen[ServoCmdMoveWrite] = 7
@@ -35,6 +36,18 @@ func init() {
 	ServoCmdLen[ServoCmdPosRead] = 3
 	ServoCmdLen[ServoCmdMotorModeWrite] = 7
 	ServoCmdLen[ServoCmdLoadUnloadWrite] = 4
+
+	SerialPaths = []string{}
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB0" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB1" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB2" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB3" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB4" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB5" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB6" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB7" )
+	SerialPaths = append(SerialPaths, "/dev/ttyUSB8" )
+	SerialPaths = append(SerialPaths, "/dev/tty.SLAB_USBtoUART" )
 
 	FNF=FrameNotFinError{}
 	WFR=WaitingForResponseError{}
@@ -54,13 +67,30 @@ func unlock() {
 	serial_handler.mtx.Unlock()
 }
 
+func findValidSerialPath() (path string, err error) {
+	for _,path = range SerialPaths{
+		_, err = os.Stat(path)
+		if err == nil {
+			return path, nil;
+		}
+	}
+	return "", err
+}
+
 func SerialOpen() error {
+	serialPath, err := findValidSerialPath()
+	if err != nil {
+		return err
+	}
+
+	if DebugSerial {
+		fmt.Printf("using serial path: %s \n", serialPath)
+	}
+
 	lock()
 	defer unlock()
+	cfg := &serial.Config{Name: serialPath, Baud: SerialBaud, ReadTimeout: SerialReadTimeoutInMs}
 
-	cfg := &serial.Config{Name: SerialName, Baud: SerialBaud, ReadTimeout: SerialReadTimeoutInMs}
-
-	var err error
 	serial_handler.iorwc, err = serial.OpenPort(cfg)
 	if err != nil {
 		return err
